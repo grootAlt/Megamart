@@ -1,0 +1,40 @@
+# Full stack:   docker compose up --build      → http://localhost:8080
+# Only MongoDB: docker compose up -d mongo     (for running server/client with npm)
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping").ok']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./server
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/megamart
+      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me}
+      JWT_EXPIRES_IN: 7d
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:8080
+    ports:
+      - '4000:4000'
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build: ./client
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
